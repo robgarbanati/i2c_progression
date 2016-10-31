@@ -218,7 +218,6 @@ DrvSPI_GetBusy(
 	UINT32 u32SpiHandler
 )
 {
-
 	return ((SPI_T*)u32SpiHandler)->CNTRL.GO_BUSY;
 }
 

@@ -145,7 +145,6 @@ DrvAPU_DisablePA(void);
 //				Enable DAC.
 /*---------------------------------------------------------------------------------------------------------*/
 static __inline
-void
 DrvAPU_EnableDAC(void)
 {
 	APU.APUCR.DACE = 1;
@@ -161,7 +160,6 @@ DrvAPU_EnableDAC(void)
 //				Disable DAC.
 /*---------------------------------------------------------------------------------------------------------*/
 static __inline
-void 
 DrvAPU_DisableDAC(void)
 {
 	APU.APUCR.DACE = 0;
@@ -178,7 +176,6 @@ DrvAPU_DisableDAC(void)
 //				APU output pin whether bypass power amplifier or not.
 /*---------------------------------------------------------------------------------------------------------*/
 static __inline
-void
 DrvAPU_BypassPA(
 	E_DRVAPU_PA	eAPUOutput
 )

@@ -1,61 +1,66 @@
 #ifndef __SPI_H
 #define __SPI_H
 
-#include "Global.h"
-#include "Packet.h"
-
+#include "Platform.h"
+//#include "cmsis_os.h"
 
 //
 // Global Defines and Declarations
 //
 
-#define SPI_BUSUP_GPIO					GPIOB
-#define SPI_BUSUP_MS_PIN				DRVGPIO_PIN_0
-#define SPI_BUSUP_SS_PIN				DRVGPIO_PIN_1
-#define SPI_BUSUP_SCK_PIN				DRVGPIO_PIN_2
-#define SPI_BUSUP_DO_PIN				DRVGPIO_PIN_3
-#define SPI_BUSUP_DI_PIN				DRVGPIO_PIN_4
+#define SPI_BODY_PACKET_SIGNAL	0x01
 
-#ifdef __NVT1_APP__
-#define SPI_BUSDN_GPIO					GPIOA
-#define SPI_BUSDN_MS_PIN				DRVGPIO_PIN_5
-#define SPI_BUSDN_SS_PIN				DRVGPIO_PIN_0
-#define SPI_BUSDN_SCK_PIN				DRVGPIO_PIN_2
-#define SPI_BUSDN_DI_PIN				DRVGPIO_PIN_3
-#define SPI_BUSDN_DO_PIN				DRVGPIO_PIN_4
 
-#define SPI_SFLASH_GPIO					GPIOA
-#define SPI_SFLASH_SS_PIN				DRVGPIO_PIN_1
-#define SPI_SFLASH_SCK_PIN			DRVGPIO_PIN_2
-#define SPI_SFLASH_DI_PIN				DRVGPIO_PIN_3
-#define SPI_SFLASH_DO_PIN				DRVGPIO_PIN_4
-#endif
+#define SPI_BUF_LENGTH 8
 
-// SPI thread ID.
-extern osThreadId spiThreadId;
+// Buffer data structure for head.
+typedef __packed struct
+{
+	UINT8 status;
+	UINT8 buffer[SPI_BUF_LENGTH];
+} spiHeadData;
 
-// SPI master bus mutex.
-extern osMutexId spiMasterMutex;
+// XXX Note: The Rev B circuit board incorrectly swaps the DO and DI pins 
+// XXX so the cable to the head needs have the DO and DI pins swapped.
+#define SPI_GPIO			GPIOB
+#define SPI_CS_PIN		DRVGPIO_PIN_1
+#define SPI_SCK_PIN		DRVGPIO_PIN_2
+#define SPI_DO_PIN		DRVGPIO_PIN_3
+#define SPI_DI_PIN		DRVGPIO_PIN_4
 
 //
 // Global Functions
 //
 
-// Init operations.
-void spiInit(void);
-void spiReset(void);
 
-// Packet queue operations.
-BOOL spiPutSendQueue(const PACKETData *packet);
+//
+// open spi slave driver to talk to Sway Host
+//
+void spiSlave_Init(void);
+//
+// close spi slave driver
+//
+void spiSlave_Close(void);
+// open spi driver
+void spiMaster_Init(void);
+//
+// close spi driver
+//
+void spiMaster_close(void);
+//
+// return 8 bits read from spi.
+//
+static UINT8 spiMaster_Read8(void);
+//
+// write a value of 8 bits to an address
+//
+void spiMaster_Write8(UINT8 value);
+//
+// Init functions.
+//
 
-// Data transfer handlers for upstream and downstream SPI buses.
-void spiSlaveSelectHandler(void);
-#ifdef __NVT1_APP__
-void spiMasterSelectHandler(void);
-#endif
-
-// Spi processing thread.
-void spiThread(void const *argument);
+// Interrupt handler for SPI packets from the body.
+void read_and_write_SPI(void);
 
 #endif // __SPI_H
 
