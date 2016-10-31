@@ -36,10 +36,10 @@ void GPAB_IRQHandler(void) {
 		DrvGPIO_ClearIntFlag(I2C_SCK_PORT, I2C_SCK_MASK);
 		
 		// Did clock rise from low to high?
-		if(i2c_clock_read(&i2c_inst)) {
-			printf("clock rose from low to high\n");
+		if(i2c_clock_read()) {
+			i2c_update_slave_state(SCK_ROSE);
 		} else {
-			printf("clock fell from high to low\n");
+			i2c_update_slave_state(SCK_FELL);
 		}
 	}
 	
@@ -48,14 +48,12 @@ void GPAB_IRQHandler(void) {
 		DrvGPIO_ClearIntFlag(I2C_SDA_PORT, I2C_SDA_MASK);
 		
 		// Did clock rise from low to high?
-		if(i2c_data_read(&i2c_inst)) {
-			printf("data rose from low to high\n");
+		if(i2c_data_read()) {
+			i2c_update_slave_state(SDA_ROSE);
 		} else {
-			printf("data fell from high to low\n");
+			i2c_update_slave_state(SDA_FELL);
 		}
 	}
-	
-	printf("int flags: 0x%x\n", int_flags);
 }
 
 // Initialize system clock.
@@ -117,7 +115,7 @@ int main (void) {
 	// Initialize GPIO.
 	gpioInit();
 	
-	i2c_inst = i2c_init(I2C_SDA_PORT, I2C_SDA_MASK, I2C_SCK_PORT, I2C_SCK_MASK);
+	i2c_init(I2C_SDA_PORT, I2C_SDA_MASK, I2C_SCK_PORT, I2C_SCK_MASK);
 
 	// Blink to show we're alive.
 	for(;;) {
