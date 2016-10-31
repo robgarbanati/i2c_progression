@@ -26,11 +26,12 @@
 
 /************************** Type Prototypes **************************/
 typedef enum pin_enum {
-	HIGH,
-	LOW
+	LOW,
+	HIGH
 } pin_t;
 
 typedef enum i2c_state_enum {
+	NO_STATE,
 	START_CONDITION,
 	REPEATED_START_CONDITION,
 	STOP_CONDITION,

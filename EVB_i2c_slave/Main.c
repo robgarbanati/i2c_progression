@@ -21,40 +21,7 @@
 #include "gpio_rw.h"
 #include "soft_i2c.h"
 
-SoftI2C i2c_inst;
-
 int button1, button2, button3, button4;
-
-// Handle the GPIO interrupt. Print a message and clear the int flags.
-void GPAB_IRQHandler(void) {
-	static int count = 0;
-//	int success;
-	uint16_t int_flags = DrvGPIO_GetIntFlag(I2C_SCK_PORT, 0xFFFF);
-	
-	// Did interrupt fire from a clock transition?
-	if(int_flags & I2C_SCK_MASK) {
-		DrvGPIO_ClearIntFlag(I2C_SCK_PORT, I2C_SCK_MASK);
-		
-		// Did clock rise from low to high?
-		if(i2c_clock_read()) {
-			i2c_update_slave_state(SCK_ROSE);
-		} else {
-			i2c_update_slave_state(SCK_FELL);
-		}
-	}
-	
-	// Did interrupt fire from a data transition?
-	if(int_flags & I2C_SDA_MASK) {
-		DrvGPIO_ClearIntFlag(I2C_SDA_PORT, I2C_SDA_MASK);
-		
-		// Did clock rise from low to high?
-		if(i2c_data_read()) {
-			i2c_update_slave_state(SDA_ROSE);
-		} else {
-			i2c_update_slave_state(SDA_FELL);
-		}
-	}
-}
 
 // Initialize system clock.
 void clkInit(void)
@@ -86,17 +53,17 @@ void gpioInit(void) {
 	DrvGPIO_SetIOMode(&GPIOB,
 		DRVGPIO_IOMODE_PIN6_OPEN_DRAIN	|		// LED 1
 		DRVGPIO_IOMODE_PIN7_OPEN_DRAIN	|		// LED 2
-		DRVGPIO_IOMODE_PIN14_QUASI	|		// I2C Clock
-		DRVGPIO_IOMODE_PIN15_QUASI	|		// I2C Data
+		DRVGPIO_IOMODE_PIN14_QUASI	|			// I2C Clock
+		DRVGPIO_IOMODE_PIN15_QUASI	|			// I2C Data
 		DRVGPIO_IOMODE_PIN13_QUASI		|		// Button 3 input
 		DRVGPIO_IOMODE_PIN12_QUASI				// Button 4 input
 	);
 	
 	// Enable interrupt on any transition for I2C SDA and SCK
-	DrvGPIO_SetFallingInt(&GPIOB, DRVGPIO_PIN_14, TRUE);
-	DrvGPIO_SetRisingInt(&GPIOB, DRVGPIO_PIN_14, TRUE);
-	DrvGPIO_SetFallingInt(&GPIOB, DRVGPIO_PIN_15, TRUE);
-	DrvGPIO_SetRisingInt(&GPIOB, DRVGPIO_PIN_15, TRUE);
+	DrvGPIO_SetFallingInt(I2C_SCK_PORT, I2C_SCK_MASK, TRUE);
+	DrvGPIO_SetRisingInt(I2C_SCK_PORT, I2C_SCK_MASK, TRUE);
+	DrvGPIO_SetFallingInt(I2C_SDA_PORT, I2C_SDA_MASK, TRUE);
+	DrvGPIO_SetRisingInt(I2C_SDA_PORT, I2C_SDA_MASK, TRUE);
 	
 
 	// Enable GPIO interrupt routine.

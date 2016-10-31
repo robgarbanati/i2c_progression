@@ -15,7 +15,15 @@
 //**********************************************************************//
 //							Private Variables							//
 //**********************************************************************//
-static SoftI2C soft_i2c;
+static SoftI2C i2c = {
+	(GPIO_T*)0, // data_port
+    0,			// data_mask
+    (GPIO_T*)0,	// clock_port
+    0,			// clock_mask
+	HIGH,		// sck_pin
+	HIGH,		// sda_pin
+	NO_STATE	// state
+};
 
 //**********************************************************************//
 //							Private Functions							//
@@ -28,32 +36,32 @@ i2c_delay(uint32_t delay) {
 
 // TODO make sure clock_pin is set up as a mask.
 static __INLINE void i2c_clock_high(void) {
-    DrvGPIO_SetOutputBit(soft_i2c.clock_port, soft_i2c.clock_mask);
+    DrvGPIO_SetOutputBit(i2c.clock_port, i2c.clock_mask);
 }
 
 // TODO make sure clock_pin is set up as a mask.
 static __INLINE void i2c_clock_low(void) {
-    DrvGPIO_ClearOutputBit(soft_i2c.clock_port, soft_i2c.clock_mask);
+    DrvGPIO_ClearOutputBit(i2c.clock_port, i2c.clock_mask);
 }
 
 __INLINE bool
 i2c_clock_read(void) {
-    return DrvGPIO_GetInputPinValue(soft_i2c.clock_port, soft_i2c.clock_mask) & soft_i2c.clock_mask ? true : false;
+    return DrvGPIO_GetInputPinValue(i2c.clock_port, i2c.clock_mask) & i2c.clock_mask ? true : false;
 }
 
 __INLINE void
 i2c_data_high(void) {
-	DrvGPIO_SetOutputBit(soft_i2c.data_port, soft_i2c.data_mask);
+	DrvGPIO_SetOutputBit(i2c.data_port, i2c.data_mask);
 }
 
 __INLINE void
 i2c_data_low(void) {
-    DrvGPIO_ClearOutputBit(soft_i2c.data_port, soft_i2c.data_mask);
+    DrvGPIO_ClearOutputBit(i2c.data_port, i2c.data_mask);
 }
 
 __INLINE bool
 i2c_data_read(void) {
-    return DrvGPIO_GetInputPinValue(soft_i2c.data_port, soft_i2c.data_mask) & soft_i2c.data_mask ? true : false;
+    return DrvGPIO_GetInputPinValue(i2c.data_port, i2c.data_mask) & i2c.data_mask ? true : false;
 }
 
 // NOTE (brandon) : Added to support slave read.
@@ -440,15 +448,59 @@ slave_i2c_get_byte(void) {
 //							Public Functions							//
 //**********************************************************************//
 
+// Handle the GPIO interrupt. Print a message and clear the int flags.
+void GPAB_IRQHandler(void) {
+	static int count = 0;
+//	int success;
+	uint16_t int_flags = DrvGPIO_GetIntFlag(I2C_SCK_PORT, 0xFFFF);
+	
+	// Did interrupt fire from a clock transition?
+	if(int_flags & I2C_SCK_MASK) {
+		DrvGPIO_ClearIntFlag(I2C_SCK_PORT, I2C_SCK_MASK);
+		
+		// Did clock rise from low to high?
+		if(i2c_clock_read()) {
+			i2c_update_slave_state(SCK_ROSE);
+		} else {
+			i2c_update_slave_state(SCK_FELL);
+		}
+	}
+	
+	// Did interrupt fire from a data transition?
+	if(int_flags & I2C_SDA_MASK) {
+		DrvGPIO_ClearIntFlag(I2C_SDA_PORT, I2C_SDA_MASK);
+		
+		// Did clock rise from low to high?
+		if(i2c_data_read()) {
+			i2c_update_slave_state(SDA_ROSE);
+		} else {
+			i2c_update_slave_state(SDA_FELL);
+		}
+	}
+}
+
+
 bool i2c_update_slave_state(transition_t transition) {
 	if(transition == SCK_ROSE) {
-		printf("clock rose\n");
+		if(i2c.sck_pin == LOW) {
+			printf("clock rose\n");
+		}
+		i2c.sck_pin = HIGH;
 	} else if(transition == SCK_FELL) {
-		printf("clock fell\n");
+		if(i2c.sck_pin == HIGH) {
+			printf("clock fell\n");
+		}
+		i2c.sck_pin = LOW;
 	} else if(transition == SDA_ROSE) {
-		printf("data rose\n");
+		if(i2c.sda_pin == LOW) {
+			printf("data rose\n");
+		}
+		i2c.sda_pin = HIGH;
 	} else if(transition == SDA_FELL) {
-		printf("data fell\n");
+		if(i2c.sda_pin == HIGH) {
+			printf("data fell\n");
+		}
+		i2c.sda_pin = LOW;
 	} else {
 		printf("error illegal transition");
 		return 0;
@@ -457,43 +509,43 @@ bool i2c_update_slave_state(transition_t transition) {
 }
 
 SoftI2C i2c_init(GPIO_T * data_port, uint32_t data_mask, GPIO_T * clock_port, uint32_t clock_mask) {
-    soft_i2c.data_port = data_port;
-    soft_i2c.clock_port = clock_port;
-    soft_i2c.data_mask = data_mask;
-    soft_i2c.clock_mask = clock_mask;
+    i2c.data_port = data_port;
+    i2c.clock_port = clock_port;
+    i2c.data_mask = data_mask;
+    i2c.clock_mask = clock_mask;
 
     // Set the modes to open drain so we can sink current.
 #if I2C_SDA_PIN != 14
 	#ERROR
 #else
-//	DrvGPIO_SetIOMode(soft_i2c.data_port, DRVGPIO_IOMODE_PIN14_OPEN_DRAIN);
+//	DrvGPIO_SetIOMode(i2c.data_port, DRVGPIO_IOMODE_PIN14_OPEN_DRAIN);
 #endif
 
 #if I2C_SCK_PIN != 15
 	#ERROR
 #else
-//	DrvGPIO_SetIOMode(soft_i2c.clock_port, DRVGPIO_IOMODE_PIN15_OPEN_DRAIN);
+//	DrvGPIO_SetIOMode(i2c.clock_port, DRVGPIO_IOMODE_PIN15_OPEN_DRAIN);
 #endif
 
     // Make sure SDA and SCL are set high.
     i2c_clock_high();
 	i2c_data_high();
 
-    return soft_i2c;
+    return i2c;
 }
 
 // This is only called by i2c interrupt, so it's a stop condition if the clock is high.
 bool i2c_received_stop_condition(void) {
 	// Is SCK high?
-	return (DrvGPIO_GetInputPinValue(soft_i2c.clock_port, soft_i2c.clock_mask) != 0);
+	return (DrvGPIO_GetInputPinValue(i2c.clock_port, i2c.clock_mask) != 0);
 }
 
 // Detect a transition
 //bool wait_for_start_condition() {
 //	while(1) {
 //		// Is SCK high and data low?
-//		if( (DrvGPIO_GetInputPinValue(soft_i2c.clock_port, soft_i2c.clock_mask) != 0) &&
-//			(DrvGPIO_GetInputPinValue(soft_i2c.data_port, soft_i2c.data_mask) == 0) ) {
+//		if( (DrvGPIO_GetInputPinValue(i2c.clock_port, i2c.clock_mask) != 0) &&
+//			(DrvGPIO_GetInputPinValue(i2c.data_port, i2c.data_mask) == 0) ) {
 //			// Is SCK still high 
 
 // NOTE (brandon) : Added slave function.
