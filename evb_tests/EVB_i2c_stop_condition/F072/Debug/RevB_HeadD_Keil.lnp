@@ -1,0 +1,11 @@
+--cpu Cortex-M0
+".\f072\debug\sfr.o"
+".\f072\debug\main.o"
+".\f072\debug\soft_i2c.o"
+".\f072\debug\core_cm0.o"
+".\f072\debug\startup_n572_keil.o"
+"..\Nuvoton\Lib\Commu\SemiHost_Keil.lib"
+--strict --scatter ".\RevB_Head_F072_Keil.ld"
+--map --datacompressor=off --info=inline --entry Reset_Handler --remove --userlibpath="../Nuvoton/Lib" Driver_F072_keil.lib --summary_stderr --info summarysizes --map --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list ".\F072\Debug\RevB_HeadD_Keil.map" -o .\F072\Debug\RevB_HeadD_Keil.axf
