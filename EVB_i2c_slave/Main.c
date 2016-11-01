@@ -1,12 +1,5 @@
 /* 
- * This demo is meant to be used with the debugger and the N572 eval board.
- * It simply demonstrates use of printf and the GPAB interrupt.
- * If you press 4 of the 6 buttons, GPAB_IRQHandler will fire, 
- * printing "in irq".
- * Sometimes the interrupt will fire twice. I'm not sure why that is.
- * It might have to do with faulty edge detection on the Nuvoton.
- * To view the printfs, start the debugger, click run, and click
- * View->Serial Windows->UART #1.
+ * The difference between running as master and as slave is the #define // TODO where is the #define?
  */ 
 
 #include <stdio.h>

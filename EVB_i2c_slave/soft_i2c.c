@@ -493,7 +493,7 @@ void GPAB_IRQHandler(void) {
 
 bool i2c_update_slave_state(transition_t transition) {
 	if(transition == SCK_ROSE) {
-//		printf("sck /\\\n");
+//		PRINTD("sck /\\\n");
 		i2c.sck_pin = HIGH;
 		switch(i2c.state) {
 			// Should we read in the address?
@@ -501,18 +501,18 @@ bool i2c_update_slave_state(transition_t transition) {
 				// Read in the address bits.
 				if(i2c.bit <= 6) {
 					i2c.address |= i2c.sda_pin << (6 - i2c.bit);
-					printf("addr = %u\n", i2c.address);
+					PRINTD("addr = %u\n", i2c.address);
 				// Does master want to read or write?
 				} else if(i2c.bit == 7) {
 					if(i2c.sda_pin == HIGH) {
-						printf("master wants to read from address %u\n", i2c.address);
+						PRINTD("master wants to read from address %u\n", i2c.address);
 					} else {
-						printf("master wants to write to address %u\n", i2c.address);
+						PRINTD("master wants to write to address %u\n", i2c.address);
 					}
 					i2c.state = SEND_ADDRESS_ACK;
-					printf("in send_ack state\n");
+					PRINTD("in send_ack state\n");
 				} else {
-					printf("ERROR: address bit is too high (%d)\n", i2c.bit);
+					PRINTD("ERROR: address bit is too high (%d)\n", i2c.bit);
 				}
 				
 				// This is how we keep track of how many bits we have read in. Increment it.
@@ -523,9 +523,9 @@ bool i2c_update_slave_state(transition_t transition) {
 			case ADDRESS_ACK_SENT:
 				// Double check that our ack is working.
 				if(i2c.sda_pin == HIGH) {
-					printf("ERROR we failed to send an ack.\n");
+					PRINTD("ERROR we failed to send an ack.\n");
 				} else {
-					printf("sending an ack correctly!\n");
+					PRINTD("sending an ack correctly!\n");
 				}
 				break;
 
@@ -533,13 +533,13 @@ bool i2c_update_slave_state(transition_t transition) {
 			case READ_DATA:
 				if(i2c.bit <= 7) {
 					i2c.data |= i2c.sda_pin << (7 - i2c.bit);
-					printf("data = %u\n", i2c.data);
+					PRINTD("data = %u\n", i2c.data);
 					i2c.bit++;
 					if(i2c.bit >= 8) {
 						i2c.state = SEND_DATA_ACK;
 					}
 				} else {
-					printf("ERROR: data bit is too high (%d)\n", i2c.bit);
+					PRINTD("ERROR: data bit is too high (%d)\n", i2c.bit);
 				}
 				break;
 	
@@ -547,9 +547,9 @@ bool i2c_update_slave_state(transition_t transition) {
 			case DATA_ACK_SENT:
 				// Double check that our ack is working.
 				if(i2c.sda_pin == HIGH) {
-					printf("ERROR we failed to send an ack.\n");
+					PRINTD("ERROR we failed to send an ack.\n");
 				} else {
-					printf("sending an ack correctly!\n");
+					PRINTD("sending an ack correctly!\n");
 				}
 				break;
 			default:
@@ -558,15 +558,15 @@ bool i2c_update_slave_state(transition_t transition) {
 		}
 				
 	} else if(transition == SCK_FELL) {
-//		printf("sck \\/\n");
+//		PRINTD("sck \\/\n");
 		i2c.sck_pin = LOW;
 		if(i2c.state == SEND_ADDRESS_ACK) {
-			printf("trying to keep sda low\n");
+			PRINTD("trying to keep sda low\n");
 			i2c_data_low();
 			i2c.state = ADDRESS_ACK_SENT;
 		}
 		else if(i2c.state == SEND_DATA_ACK) {
-			printf("trying to keep sda low\n");
+			PRINTD("trying to keep sda low\n");
 			i2c_data_low();
 			i2c.state = DATA_ACK_SENT;
 		}
@@ -579,25 +579,25 @@ bool i2c_update_slave_state(transition_t transition) {
 			i2c_data_high();
 			i2c.state = NO_STATE;
 			i2c.bit = 0;
-			printf("all done!");
+			PRINTD("all done!");
 		}
 	} else if(transition == SDA_ROSE) {
-		printf("sda /\\\n");
+		PRINTD("sda /\\\n");
 		i2c.sda_pin = HIGH;
 		if(i2c.sck_pin == HIGH) {
-			printf("start condition\n");
+			PRINTD("start condition\n");
 			i2c.state = ADDRESS;
 			i2c.bit = i2c.data = i2c.address = 0;
 		}
 	} else if(transition == SDA_FELL) {
-		printf("sda \\/\n");
+		PRINTD("sda \\/\n");
 		i2c.sda_pin = LOW;
 		if(i2c.sck_pin == HIGH) {
-			printf("stop condition\n");
+			PRINTD("stop condition\n");
 			i2c.state = NO_STATE;
 		}
 	} else {
-		printf("error illegal transition");
+		PRINTD("error illegal transition");
 		return 0;
 	}
 	return 1;
