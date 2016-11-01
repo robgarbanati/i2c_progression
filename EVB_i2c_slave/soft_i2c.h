@@ -32,11 +32,17 @@ typedef enum pin_enum {
 
 typedef enum i2c_state_enum {
 	NO_STATE,
-	START_CONDITION,
-	REPEATED_START_CONDITION,
-	STOP_CONDITION,
+//	START_CONDITION,
+//	REPEATED_START_CONDITION,
+//	STOP_CONDITION,
 	ADDRESS,
-	DATA
+	READ_DATA,
+	SEND_DATA,
+	SEND_ADDRESS_ACK,
+	SEND_DATA_ACK,
+	SEND_NAK,
+	ADDRESS_ACK_SENT,
+	DATA_ACK_SENT
 } i2c_state_t;
 
 typedef struct _SoftI2C {
@@ -47,6 +53,9 @@ typedef struct _SoftI2C {
 	pin_t sck_pin;
 	pin_t sda_pin;
 	i2c_state_t state;
+	uint8_t bit;
+	uint8_t address;
+	uint8_t data;
 } SoftI2C;
 
 typedef enum transition_enum {
