@@ -690,7 +690,7 @@ SoftI2C i2c_init(GPIO_T * data_port, uint32_t data_mask, GPIO_T * clock_port, ui
 	for(;;) {
 //		nonstatic_i2c_send_byte(&i2c_port, 0x0A);
 //		i2c_send(0x56, &data, 1);
-		i2c_recv(0x70, &data, 1);
+		i2c_recv(0x77, &data, 1);
 		PRINTD("received data: 0x%x\n", data);
 
 	}
