@@ -1,1 +1,3 @@
-EVB_i2c_slave/F072/Debug/*
+EVB_dirdetect_i2c_slave/F072/Debug/*
+EVB_i2c_echo/F072/Debug/*
+
