@@ -1,5 +1,5 @@
 /* 
- * The difference between running as master and as slave is the #define // TODO where is the #define?
+ * The difference between running as master and as slave is the #define
  */ 
 
 #include <stdio.h>
@@ -51,22 +51,23 @@ void gpioInit(void) {
 		DRVGPIO_IOMODE_PIN13_QUASI		|		// Button 3 input
 		DRVGPIO_IOMODE_PIN12_QUASI				// Button 4 input
 	);
-	
+
+#ifndef MASTER
 	// Enable interrupt on any transition for I2C SDA and SCK
 	DrvGPIO_SetFallingInt(I2C_SCK_PORT, I2C_SCK_MASK, TRUE);
 	DrvGPIO_SetRisingInt(I2C_SCK_PORT, I2C_SCK_MASK, TRUE);
 	DrvGPIO_SetFallingInt(I2C_SDA_PORT, I2C_SDA_MASK, TRUE);
 	DrvGPIO_SetRisingInt(I2C_SDA_PORT, I2C_SDA_MASK, TRUE);
-	
 
 	// Enable GPIO interrupt routine.
-	NVIC_EnableIRQ(GPAB_IRQn);    
+	NVIC_EnableIRQ(GPAB_IRQn);
+#endif
 }
 
 
 // Main thread.
 int main (void) {
-	int i;
+	int i, j;
 	PRINTD("easy printf\n");
 	
 	// Initialize clocks.
@@ -74,11 +75,26 @@ int main (void) {
 
 	// Initialize GPIO.
 	gpioInit();
+
+#ifdef MASTER
+	// Blink for a moment to show we're alive.
+	for(j=0; j<2; j++) {
+		DrvGPIO_SetOutputBit(&GPIOB, 1 << 6);
+		DrvGPIO_ClearOutputBit(&GPIOB, 1 << 7);
+		for(i=0;i<1000000;i++);
+		DrvGPIO_ClearOutputBit(&GPIOB, 1 << 6);
+		DrvGPIO_SetOutputBit(&GPIOB, 1 << 7);
+		for(i=0;i<1000000;i++);
+	}
 	
+#endif
+	
+		
 	i2c_init(I2C_SDA_PORT, I2C_SDA_MASK, I2C_SCK_PORT, I2C_SCK_MASK);
 
+	
 	// Blink to show we're alive.
-	for(;;) {
+	while(1) {
 		DrvGPIO_SetOutputBit(&GPIOB, 1 << 6);
 		DrvGPIO_ClearOutputBit(&GPIOB, 1 << 7);
 		for(i=0;i<1000000;i++);

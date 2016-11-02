@@ -12,6 +12,7 @@
 #include "Driver/DrvSPI.h"
 #include "Packet.h"
 #include "gpio_rw.h"
+#include "main.h"
 
 
 //**********************************************************************//
@@ -24,6 +25,7 @@
 #define I2C_SCK_PIN					15
 #define I2C_SCK_MASK				(1 << I2C_SCK_PIN)
 
+#define WRITE_BYTE	0x0F
 /************************** Type Prototypes **************************/
 typedef enum pin_enum {
 	LOW,
@@ -36,14 +38,18 @@ typedef enum i2c_state_enum {
 //	REPEATED_START_CONDITION,
 //	STOP_CONDITION,
 	ADDRESS,
-	READ_DATA,
-	SEND_DATA,
+	DATA,
 	SEND_ADDRESS_ACK,
 	SEND_DATA_ACK,
 	SEND_NAK,
 	ADDRESS_ACK_SENT,
 	DATA_ACK_SENT
 } i2c_state_t;
+
+typedef enum data_state_enum {
+	READ,
+	WRITE
+} data_state_t;
 
 typedef struct _SoftI2C {
     GPIO_T *data_port;
@@ -53,6 +59,7 @@ typedef struct _SoftI2C {
 	pin_t sck_pin;
 	pin_t sda_pin;
 	i2c_state_t state;
+	data_state_t data_state;
 	uint8_t bit;
 	uint8_t address;
 	uint8_t data;

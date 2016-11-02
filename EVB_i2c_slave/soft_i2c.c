@@ -3,10 +3,10 @@
 // Implements software-based I2C communication protocol.
 
 // I2C Bus Timing - uS
-#define I2C_BASE_TIME	  12
+#define I2C_BASE_TIME	  1200
 #define I2C_START_DELAY   I2C_BASE_TIME
 #define I2C_STOP_DELAY    I2C_BASE_TIME
-#define I2C_DATA_SETTLE   1
+#define I2C_DATA_SETTLE   I2C_BASE_TIME/2
 #define I2C_CLOCK_HIGH    I2C_BASE_TIME * 2
 #define I2C_CLOCK_LOW     I2C_BASE_TIME * 2
 #define I2C_HALF_CLOCK    I2C_BASE_TIME
@@ -134,6 +134,31 @@ i2c_clock(void) {
 
     // Minimum clock low time.
     i2c_delay(I2C_CLOCK_LOW);
+}
+
+static void
+inverted_i2c_clock(void) {
+    // Minimum clock low time.
+//    i2c_delay(I2C_DATA_SETTLE);
+
+	// TODO check that clock is low?
+    // Lower the clock.
+    i2c_clock_low();
+	
+	// Handle clock stretching by the slave.
+    i2c_stretch();
+
+    // Minimum clock low time.
+    i2c_delay(I2C_CLOCK_LOW);
+	
+    // Raise the clock.
+    i2c_clock_high();
+
+    // Handle clock stretching by the slave.
+    i2c_stretch();
+
+    // Minimum clock high time.
+    i2c_delay(I2C_CLOCK_HIGH);
 }
 
 // NOTE (brandon) : Added to support slave read.
@@ -368,7 +393,7 @@ static bool i2c_send_byte(uint8_t byte) {
 
     // Minimum clock low time.
     i2c_delay(I2C_CLOCK_LOW);
-
+	
     // Send 8 bits of data.
     for (i = 0; i < 8; ++i)
     {
@@ -383,6 +408,7 @@ static bool i2c_send_byte(uint8_t byte) {
 
         // Pulse the clock.
         i2c_clock();
+//		inverted_i2c_clock();
     }
 
     // Release data pin for ACK.
@@ -492,8 +518,9 @@ void GPAB_IRQHandler(void) {
 
 
 bool i2c_update_slave_state(transition_t transition) {
+	uint8_t write_bit;
 	if(transition == SCK_ROSE) {
-//		PRINTD("sck /\\\n");
+		PRINTD("sck /\\\n");
 		i2c.sck_pin = HIGH;
 		switch(i2c.state) {
 			// Should we read in the address?
@@ -501,13 +528,15 @@ bool i2c_update_slave_state(transition_t transition) {
 				// Read in the address bits.
 				if(i2c.bit <= 6) {
 					i2c.address |= i2c.sda_pin << (6 - i2c.bit);
-					PRINTD("addr = %u\n", i2c.address);
+					PRINTD("addr = 0x%x\n", i2c.address);
 				// Does master want to read or write?
 				} else if(i2c.bit == 7) {
 					if(i2c.sda_pin == HIGH) {
-						PRINTD("master wants to read from address %u\n", i2c.address);
+						i2c.data_state = WRITE;
+						PRINTD("writing to address 0x%x\n", i2c.address);
 					} else {
-						PRINTD("master wants to write to address %u\n", i2c.address);
+						i2c.data_state = READ;
+						PRINTD("reading from address 0x%x\n", i2c.address);
 					}
 					i2c.state = SEND_ADDRESS_ACK;
 					PRINTD("in send_ack state\n");
@@ -529,17 +558,21 @@ bool i2c_update_slave_state(transition_t transition) {
 				}
 				break;
 
-			// Should we read in the data?
-			case READ_DATA:
-				if(i2c.bit <= 7) {
-					i2c.data |= i2c.sda_pin << (7 - i2c.bit);
-					PRINTD("data = %u\n", i2c.data);
-					i2c.bit++;
-					if(i2c.bit >= 8) {
-						i2c.state = SEND_DATA_ACK;
+			// Are we in the data portion of the message?
+			case DATA:
+				// Should we read in the data?
+				if(i2c.data_state == READ) {
+					if(i2c.bit <= 7) {
+						i2c.data |= i2c.sda_pin << (7 - i2c.bit);
+						PRINTD("read data = 0x%x\n", i2c.data);
+						i2c.bit++;
+						if(i2c.bit >= 8) {
+							i2c.state = SEND_DATA_ACK;
+						}
+					} else {
+						PRINTD("ERROR: data bit is too high (%d)\n", i2c.bit);
 					}
-				} else {
-					PRINTD("ERROR: data bit is too high (%d)\n", i2c.bit);
+					// Else do nothing
 				}
 				break;
 	
@@ -554,16 +587,19 @@ bool i2c_update_slave_state(transition_t transition) {
 				break;
 			default:
 				break;
-				
 		}
-				
 	} else if(transition == SCK_FELL) {
-//		PRINTD("sck \\/\n");
+		PRINTD("sck \\/\n");
 		i2c.sck_pin = LOW;
 		if(i2c.state == SEND_ADDRESS_ACK) {
 			PRINTD("trying to keep sda low\n");
 			i2c_data_low();
-			i2c.state = ADDRESS_ACK_SENT;
+			if(i2c.data_state == READ) {
+				i2c.state = ADDRESS_ACK_SENT;
+			} else {
+				i2c.state = DATA;
+				i2c.bit = 0;
+			}
 		}
 		else if(i2c.state == SEND_DATA_ACK) {
 			PRINTD("trying to keep sda low\n");
@@ -572,29 +608,51 @@ bool i2c_update_slave_state(transition_t transition) {
 		}
 		else if(i2c.state == ADDRESS_ACK_SENT) {
 			i2c_data_high();
-			i2c.state = READ_DATA;
+			i2c.state = DATA;
 			i2c.bit = 0;
+			PRINTD("going to data\n");
 		}
 		else if(i2c.state == DATA_ACK_SENT) {
 			i2c_data_high();
 			i2c.state = NO_STATE;
 			i2c.bit = 0;
-			PRINTD("all done!");
-		}
+			PRINTD("%x %x\n", i2c.address, i2c.data);
+			printf("%x %x\n", i2c.address, i2c.data);
+		} else if(i2c.state == DATA) {
+			if(i2c.data_state == WRITE) {
+				if(i2c.bit <= 7) {
+					i2c.data = i2c.address;
+					write_bit = i2c.data >> (7 - i2c.bit);
+					write_bit = write_bit & 0x1;
+					PRINTD("wb %u\n", write_bit);
+					if(write_bit) {
+						i2c_data_high();
+					} else {
+						i2c_data_low();
+					}
+					i2c.bit++;
+					if(i2c.bit >= 8) {
+						i2c.state = SEND_DATA_ACK;
+					}
+				} else {
+					PRINTD("ERROR: data bit is too high (%d)\n", i2c.bit);
+				}
+			} // Else do nothing.
+		} // Else do nothing.
 	} else if(transition == SDA_ROSE) {
 		PRINTD("sda /\\\n");
 		i2c.sda_pin = HIGH;
 		if(i2c.sck_pin == HIGH) {
-			PRINTD("start condition\n");
-			i2c.state = ADDRESS;
-			i2c.bit = i2c.data = i2c.address = 0;
+			PRINTD("stop condition\n");
+			i2c.state = NO_STATE;
 		}
 	} else if(transition == SDA_FELL) {
 		PRINTD("sda \\/\n");
 		i2c.sda_pin = LOW;
 		if(i2c.sck_pin == HIGH) {
-			PRINTD("stop condition\n");
-			i2c.state = NO_STATE;
+			PRINTD("start condition\n");
+			i2c.state = ADDRESS;
+			i2c.bit = i2c.data = i2c.address = 0;
 		}
 	} else {
 		PRINTD("error illegal transition");
@@ -604,6 +662,8 @@ bool i2c_update_slave_state(transition_t transition) {
 }
 
 SoftI2C i2c_init(GPIO_T * data_port, uint32_t data_mask, GPIO_T * clock_port, uint32_t clock_mask) {
+	uint8_t data = 0x6A;
+
     i2c.data_port = data_port;
     i2c.clock_port = clock_port;
     i2c.data_mask = data_mask;
@@ -626,6 +686,16 @@ SoftI2C i2c_init(GPIO_T * data_port, uint32_t data_mask, GPIO_T * clock_port, ui
     i2c_clock_high();
 	i2c_data_high();
 
+#ifdef MASTER
+	for(;;) {
+//		nonstatic_i2c_send_byte(&i2c_port, 0x0A);
+//		i2c_send(0x56, &data, 1);
+		i2c_recv(0x70, &data, 1);
+		PRINTD("received data: 0x%x\n", data);
+
+	}
+#endif
+
     return i2c;
 }
 
@@ -634,23 +704,6 @@ bool i2c_received_stop_condition(void) {
 	// Is SCK high?
 	return (DrvGPIO_GetInputPinValue(i2c.clock_port, i2c.clock_mask) != 0);
 }
-
-// Detect a transition
-//bool wait_for_start_condition() {
-//	while(1) {
-//		// Is SCK high and data low?
-//		if( (DrvGPIO_GetInputPinValue(i2c.clock_port, i2c.clock_mask) != 0) &&
-//			(DrvGPIO_GetInputPinValue(i2c.data_port, i2c.data_mask) == 0) ) {
-//			// Is SCK still high 
-
-// NOTE (brandon) : Added slave function.
-//bool slave_i2c_respond_to_master(uint8_t * data, uint8_t count)
-//{
-//	bool success;
-//    __disable_irq();
-//	
-//	success = wait_for_start_condition();
-//}
 
 // TODO (brandon) : Renable the ACK checks.
 bool
