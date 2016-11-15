@@ -25,6 +25,8 @@
 #define I2C_SCK_PIN					15
 #define I2C_SCK_MASK				(1 << I2C_SCK_PIN)
 
+
+
 #define WRITE_BYTE	0x0F
 /************************** Type Prototypes **************************/
 typedef enum pin_enum {

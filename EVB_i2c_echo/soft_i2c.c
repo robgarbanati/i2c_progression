@@ -523,6 +523,9 @@ bool i2c_update_slave_state(transition_t transition) {
 		PRINTD("sck /\\\n");
 		i2c.sck_pin = HIGH;
 		switch(i2c.state) {
+			case NO_STATE:
+				i2c_data_high();
+				break;
 			// Should we read in the address?
 			case ADDRESS:
 				// Read in the address bits.
@@ -531,17 +534,17 @@ bool i2c_update_slave_state(transition_t transition) {
 					PRINTD("addr = 0x%x\n", i2c.address);
 				// Does master want to read or write?
 				} else if(i2c.bit == 7) {
-					if(i2c.sda_pin == HIGH) {
+					if((i2c.sda_pin == HIGH) && (i2c.address == 0x0d)) {
 						i2c.data_state = WRITE;
-						PRINTD("writing to address 0x%x\n", i2c.address);
+						i2c.state = SEND_ADDRESS_ACK;
 					} else {
-						i2c.data_state = READ;
+						i2c_data_high();
+						i2c.state = NO_STATE;
 						PRINTD("reading from address 0x%x\n", i2c.address);
 					}
-					i2c.state = SEND_ADDRESS_ACK;
-					PRINTD("in send_ack state\n");
 				} else {
 					PRINTD("ERROR: address bit is too high (%d)\n", i2c.bit);
+					for(;;);
 				}
 				
 				// This is how we keep track of how many bits we have read in. Increment it.
@@ -553,6 +556,7 @@ bool i2c_update_slave_state(transition_t transition) {
 				// Double check that our ack is working.
 				if(i2c.sda_pin == HIGH) {
 					PRINTD("ERROR we failed to send an ack.\n");
+					for(;;);
 				} else {
 					PRINTD("sending an ack correctly!\n");
 				}
@@ -571,6 +575,7 @@ bool i2c_update_slave_state(transition_t transition) {
 						}
 					} else {
 						PRINTD("ERROR: data bit is too high (%d)\n", i2c.bit);
+						for(;;);
 					}
 					// Else do nothing
 				}
@@ -581,6 +586,7 @@ bool i2c_update_slave_state(transition_t transition) {
 				// Double check that our ack is working.
 				if(i2c.sda_pin == HIGH) {
 					PRINTD("ERROR we failed to send an ack.\n");
+					for(;;);
 				} else {
 					PRINTD("sending an ack correctly!\n");
 				}
@@ -594,6 +600,7 @@ bool i2c_update_slave_state(transition_t transition) {
 		if(i2c.state == SEND_ADDRESS_ACK) {
 			PRINTD("trying to keep sda low\n");
 			i2c_data_low();
+//			for(;;);
 			if(i2c.data_state == READ) {
 				i2c.state = ADDRESS_ACK_SENT;
 			} else {
@@ -623,7 +630,7 @@ bool i2c_update_slave_state(transition_t transition) {
 				if(i2c.bit <= 7) {
 					i2c.data = i2c.address;
 					write_bit = i2c.data >> (7 - i2c.bit);
-					write_bit = write_bit & 0x1;
+					write_bit = write_bit & 0x01;
 					PRINTD("wb %u\n", write_bit);
 					if(write_bit) {
 						i2c_data_high();
@@ -636,9 +643,12 @@ bool i2c_update_slave_state(transition_t transition) {
 					}
 				} else {
 					PRINTD("ERROR: data bit is too high (%d)\n", i2c.bit);
+					for(;;);
 				}
 			} // Else do nothing.
-		} // Else do nothing.
+		} else if(i2c.state == NO_STATE) {
+			i2c_data_high();
+		}// Else do nothing.
 	} else if(transition == SDA_ROSE) {
 		PRINTD("sda /\\\n");
 		i2c.sda_pin = HIGH;
@@ -690,7 +700,7 @@ SoftI2C i2c_init(GPIO_T * data_port, uint32_t data_mask, GPIO_T * clock_port, ui
 	for(;;) {
 //		nonstatic_i2c_send_byte(&i2c_port, 0x0A);
 //		i2c_send(0x56, &data, 1);
-		i2c_recv(0x77, &data, 1);
+		i2c_recv(0x0d, &data, 1);
 		PRINTD("received data: 0x%x\n", data);
 
 	}
