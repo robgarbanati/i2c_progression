@@ -10,14 +10,24 @@
 #include "Driver/DrvSYS.h"
 #include "Driver/DrvCLK.h"
 #include "Driver/DrvSPI.h"
+#include "Driver/DrvADC.h"
 #include "Packet.h"
 #include "gpio_rw.h"
 #include "main.h"
+
+extern volatile INT32 direction;
 
 
 //**********************************************************************//
 //							Module Definitions							//
 //**********************************************************************//
+//#define I2C_SDA_PORT				(&GPIOA)
+//#define I2C_SDA_PIN					4
+//#define I2C_SDA_MASK				(1 << I2C_SDA_PIN)
+//#define I2C_SCK_PORT				(&GPIOA)
+//#define I2C_SCK_PIN					3
+//#define I2C_SCK_MASK				(1 << I2C_SCK_PIN)
+
 #define I2C_SDA_PORT				(&GPIOB)
 #define I2C_SDA_PIN					14
 #define I2C_SDA_MASK				(1 << I2C_SDA_PIN)
@@ -25,7 +35,7 @@
 #define I2C_SCK_PIN					15
 #define I2C_SCK_MASK				(1 << I2C_SCK_PIN)
 
-#define WRITE_BYTE	0x0F
+
 /************************** Type Prototypes **************************/
 typedef enum pin_enum {
 	LOW,
@@ -63,6 +73,7 @@ typedef struct _SoftI2C {
 	uint8_t bit;
 	uint8_t address;
 	uint8_t data;
+	uint8_t direction_register;
 } SoftI2C;
 
 typedef enum transition_enum {

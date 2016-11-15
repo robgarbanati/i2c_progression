@@ -131,7 +131,7 @@
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
             <Capability>1</Capability>
-            <DriverSelection>4107</DriverSelection>
+            <DriverSelection>4106</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
           <Flash2>Bin\Nu_Link.dll</Flash2>
@@ -393,6 +393,11 @@
               <FileType>5</FileType>
               <FilePath>.\soft_i2c.h</FilePath>
             </File>
+            <File>
+              <FileName>DirDetect.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\DirDetect.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -412,6 +417,11 @@
               <FileName>soft_i2c.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\soft_i2c.c</FilePath>
+            </File>
+            <File>
+              <FileName>DirDetect.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\DirDetect.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -838,6 +848,11 @@
               <FileType>5</FileType>
               <FilePath>.\soft_i2c.h</FilePath>
             </File>
+            <File>
+              <FileName>DirDetect.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\DirDetect.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -857,6 +872,11 @@
               <FileName>soft_i2c.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\soft_i2c.c</FilePath>
+            </File>
+            <File>
+              <FileName>DirDetect.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\DirDetect.c</FilePath>
             </File>
           </Files>
         </Group>

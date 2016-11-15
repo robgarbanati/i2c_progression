@@ -3,7 +3,7 @@
 // Implements software-based I2C communication protocol.
 
 // I2C Bus Timing - uS
-#define I2C_BASE_TIME	  1200
+#define I2C_BASE_TIME	  17
 #define I2C_START_DELAY   I2C_BASE_TIME
 #define I2C_STOP_DELAY    I2C_BASE_TIME
 #define I2C_DATA_SETTLE   I2C_BASE_TIME/2
@@ -535,6 +535,7 @@ bool i2c_update_slave_state(transition_t transition) {
 				// Does master want to read or write?
 				} else if(i2c.bit == 7) {
 					if((i2c.sda_pin == HIGH) && (i2c.address == 0x0d)) {
+//					if(i2c.sda_pin == HIGH) {
 						i2c.data_state = WRITE;
 						i2c.state = SEND_ADDRESS_ACK;
 					} else {
@@ -600,7 +601,6 @@ bool i2c_update_slave_state(transition_t transition) {
 		if(i2c.state == SEND_ADDRESS_ACK) {
 			PRINTD("trying to keep sda low\n");
 			i2c_data_low();
-//			for(;;);
 			if(i2c.data_state == READ) {
 				i2c.state = ADDRESS_ACK_SENT;
 			} else {
@@ -624,7 +624,7 @@ bool i2c_update_slave_state(transition_t transition) {
 			i2c.state = NO_STATE;
 			i2c.bit = 0;
 			PRINTD("%x %x\n", i2c.address, i2c.data);
-			printf("%x %x\n", i2c.address, i2c.data);
+//			printf("%x %x\n", i2c.address, i2c.data);
 		} else if(i2c.state == DATA) {
 			if(i2c.data_state == WRITE) {
 				if(i2c.bit <= 7) {

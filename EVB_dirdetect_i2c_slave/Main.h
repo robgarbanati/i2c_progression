@@ -7,9 +7,6 @@
 //
 // Global Defines and Declarations
 //
- 
-#define MASTER
-extern osPoolId  memPool;
 
 #endif // __MAIN_H
 

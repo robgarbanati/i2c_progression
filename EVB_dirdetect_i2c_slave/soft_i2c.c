@@ -3,7 +3,7 @@
 // Implements software-based I2C communication protocol.
 
 // I2C Bus Timing - uS
-#define I2C_BASE_TIME	  1200
+#define I2C_BASE_TIME	  120
 #define I2C_START_DELAY   I2C_BASE_TIME
 #define I2C_STOP_DELAY    I2C_BASE_TIME
 #define I2C_DATA_SETTLE   I2C_BASE_TIME/2
@@ -22,7 +22,8 @@ static SoftI2C i2c = {
     0,			// clock_mask
 	HIGH,		// sck_pin
 	HIGH,		// sda_pin
-	NO_STATE	// state
+	NO_STATE,	// state
+	0x0d			// direction_register
 };
 
 //**********************************************************************//
@@ -134,31 +135,6 @@ i2c_clock(void) {
 
     // Minimum clock low time.
     i2c_delay(I2C_CLOCK_LOW);
-}
-
-static void
-inverted_i2c_clock(void) {
-    // Minimum clock low time.
-//    i2c_delay(I2C_DATA_SETTLE);
-
-	// TODO check that clock is low?
-    // Lower the clock.
-    i2c_clock_low();
-	
-	// Handle clock stretching by the slave.
-    i2c_stretch();
-
-    // Minimum clock low time.
-    i2c_delay(I2C_CLOCK_LOW);
-	
-    // Raise the clock.
-    i2c_clock_high();
-
-    // Handle clock stretching by the slave.
-    i2c_stretch();
-
-    // Minimum clock high time.
-    i2c_delay(I2C_CLOCK_HIGH);
 }
 
 // NOTE (brandon) : Added to support slave read.
@@ -478,6 +454,8 @@ slave_i2c_get_byte(void) {
 void GPAB_IRQHandler(void) {
 	uint16_t int_flags = DrvGPIO_GetIntFlag(I2C_SCK_PORT, 0xFFFF);
 	
+	DrvADC_DisableAdcInt();				// Disable ADC interrupt
+	
 	// Did interrupt fire from a clock transition?
 	if(int_flags & I2C_SCK_MASK) {
 		DrvGPIO_ClearIntFlag(I2C_SCK_PORT, I2C_SCK_MASK);
@@ -504,11 +482,13 @@ void GPAB_IRQHandler(void) {
 		if(i2c_data_read()) {
 			// The buttons aren't debounced, sometimes we get two of the same transition. Guard for that.
 			if(i2c.sda_pin == LOW) {
+//				puts("v");
 				i2c_update_slave_state(SDA_ROSE);
 			}
 		} else {
 			// The buttons aren't debounced, sometimes we get two of the same transition. Guard for that.
 			if(i2c.sda_pin == HIGH) {
+//				puts("^");
 				i2c_update_slave_state(SDA_FELL);
 			}
 		}
@@ -523,6 +503,10 @@ bool i2c_update_slave_state(transition_t transition) {
 		PRINTD("sck /\\\n");
 		i2c.sck_pin = HIGH;
 		switch(i2c.state) {
+			case NO_STATE:
+				i2c_data_high();
+				DrvADC_EnableAdcInt();				//enable ADC interrupt
+				break;
 			// Should we read in the address?
 			case ADDRESS:
 				// Read in the address bits.
@@ -531,17 +515,17 @@ bool i2c_update_slave_state(transition_t transition) {
 					PRINTD("addr = 0x%x\n", i2c.address);
 				// Does master want to read or write?
 				} else if(i2c.bit == 7) {
-					if(i2c.sda_pin == HIGH) {
+					if((i2c.sda_pin == HIGH) && (i2c.address == 0x0d)) {
 						i2c.data_state = WRITE;
-						PRINTD("writing to address 0x%x\n", i2c.address);
+						i2c.state = SEND_ADDRESS_ACK;
 					} else {
-						i2c.data_state = READ;
+						i2c_data_high();
+						i2c.state = NO_STATE;
 						PRINTD("reading from address 0x%x\n", i2c.address);
 					}
-					i2c.state = SEND_ADDRESS_ACK;
-					PRINTD("in send_ack state\n");
 				} else {
 					PRINTD("ERROR: address bit is too high (%d)\n", i2c.bit);
+					for(;;);
 				}
 				
 				// This is how we keep track of how many bits we have read in. Increment it.
@@ -553,6 +537,7 @@ bool i2c_update_slave_state(transition_t transition) {
 				// Double check that our ack is working.
 				if(i2c.sda_pin == HIGH) {
 					PRINTD("ERROR we failed to send an ack.\n");
+					for(;;);
 				} else {
 					PRINTD("sending an ack correctly!\n");
 				}
@@ -571,6 +556,7 @@ bool i2c_update_slave_state(transition_t transition) {
 						}
 					} else {
 						PRINTD("ERROR: data bit is too high (%d)\n", i2c.bit);
+						for(;;);
 					}
 					// Else do nothing
 				}
@@ -581,6 +567,7 @@ bool i2c_update_slave_state(transition_t transition) {
 				// Double check that our ack is working.
 				if(i2c.sda_pin == HIGH) {
 					PRINTD("ERROR we failed to send an ack.\n");
+					for(;;);
 				} else {
 					PRINTD("sending an ack correctly!\n");
 				}
@@ -594,6 +581,7 @@ bool i2c_update_slave_state(transition_t transition) {
 		if(i2c.state == SEND_ADDRESS_ACK) {
 			PRINTD("trying to keep sda low\n");
 			i2c_data_low();
+//			for(;;);
 			if(i2c.data_state == READ) {
 				i2c.state = ADDRESS_ACK_SENT;
 			} else {
@@ -621,9 +609,10 @@ bool i2c_update_slave_state(transition_t transition) {
 		} else if(i2c.state == DATA) {
 			if(i2c.data_state == WRITE) {
 				if(i2c.bit <= 7) {
-					i2c.data = i2c.address;
+//					i2c.data = direction;
+					i2c.data = 0x05;
 					write_bit = i2c.data >> (7 - i2c.bit);
-					write_bit = write_bit & 0x1;
+					write_bit = write_bit & 0x01;
 					PRINTD("wb %u\n", write_bit);
 					if(write_bit) {
 						i2c_data_high();
@@ -636,15 +625,20 @@ bool i2c_update_slave_state(transition_t transition) {
 					}
 				} else {
 					PRINTD("ERROR: data bit is too high (%d)\n", i2c.bit);
+					for(;;);
 				}
 			} // Else do nothing.
-		} // Else do nothing.
+		} else if(i2c.state == NO_STATE) {
+			i2c_data_high();
+			DrvADC_EnableAdcInt();				//enable ADC interrupt
+		}// Else do nothing.
 	} else if(transition == SDA_ROSE) {
 		PRINTD("sda /\\\n");
 		i2c.sda_pin = HIGH;
 		if(i2c.sck_pin == HIGH) {
 			PRINTD("stop condition\n");
 			i2c.state = NO_STATE;
+			DrvADC_EnableAdcInt();				//enable ADC interrupt
 		}
 	} else if(transition == SDA_FELL) {
 		PRINTD("sda \\/\n");
@@ -668,33 +662,13 @@ SoftI2C i2c_init(GPIO_T * data_port, uint32_t data_mask, GPIO_T * clock_port, ui
     i2c.clock_port = clock_port;
     i2c.data_mask = data_mask;
     i2c.clock_mask = clock_mask;
-
-    // Set the modes to open drain so we can sink current.
-#if I2C_SDA_PIN != 14
-	#ERROR
-#else
-//	DrvGPIO_SetIOMode(i2c.data_port, DRVGPIO_IOMODE_PIN14_OPEN_DRAIN);
-#endif
-
-#if I2C_SCK_PIN != 15
-	#ERROR
-#else
-//	DrvGPIO_SetIOMode(i2c.clock_port, DRVGPIO_IOMODE_PIN15_OPEN_DRAIN);
-#endif
+	i2c.direction_register = 0x0d;
 
     // Make sure SDA and SCL are set high.
     i2c_clock_high();
 	i2c_data_high();
-
-#ifdef MASTER
-	for(;;) {
-//		nonstatic_i2c_send_byte(&i2c_port, 0x0A);
-//		i2c_send(0x56, &data, 1);
-		i2c_recv(0x70, &data, 1);
-		PRINTD("received data: 0x%x\n", data);
-
-	}
-#endif
+	
+	printf("i2c.read_register = 0x%x\n", i2c.direction_register);
 
     return i2c;
 }
